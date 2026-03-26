@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guess Who? — Fun Friday</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e1a;--card:rgba(255,255,255,0.035);--border:rgba(255,255,255,0.06);
+  --pink:#f472b6;--amber:#fbbf24;--emerald:#34d399;--violet:#a78bfa;--cyan:#22d3ee;--red:#f87171;
+  --text:#e2e8f0;--muted:#64748b;
+  --sans:'Bricolage Grotesque',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+body{background:var(--bg);font-family:var(--sans);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+@keyframes bigPop{0%{opacity:0;transform:scale(.3)}60%{transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(700deg);opacity:0}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+.wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:32px 20px}
+.orb{position:fixed;border-radius:50%;pointer-events:none}
+.o1{top:5%;left:3%;width:300px;height:300px;background:radial-gradient(circle,rgba(244,114,182,.08),transparent 70%);animation:float 8s ease-in-out infinite}
+.o2{bottom:8%;right:5%;width:380px;height:380px;background:radial-gradient(circle,rgba(167,139,250,.06),transparent 70%);animation:float 10s ease-in-out infinite 3s}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px}
+.btn{border:none;border-radius:12px;font-family:var(--sans);font-weight:700;cursor:pointer;transition:all .2s;font-size:15px}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.1)}
+.btn:active{transform:translateY(0)}
+.bp{background:linear-gradient(135deg,#f472b6,#a78bfa);color:#fff;padding:13px 32px;box-shadow:0 4px 24px rgba(244,114,182,.3)}
+.bs{background:rgba(255,255,255,.06);color:var(--text);padding:13px 32px;border:1px solid var(--border)}
+.bsm{padding:7px 18px;font-size:13px}
+.inp{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:14px;font-family:var(--sans);outline:none}
+.inp:focus{border-color:var(--pink);box-shadow:0 0 0 3px rgba(244,114,182,.15)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700}
+
+#confetti-box{position:fixed;inset:0;pointer-events:none;z-index:100;overflow:hidden}
+</style>
+</head>
+<body>
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+<div id="confetti-box"></div>
+<div class="wrap" id="app"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// TEAM DATA
+// ═══════════════════════════════════════════
+const TEAMS={
+  "Team A":["Amrendra","Tanay","Mahika","Harsh","Suprit","Satyam","Sirjan","Anikait","Zubair"],
+  "Team B":["Ashish Bedi","Adheil","Hemanth","Mihir","Vishal","Ronak","Sonakshi","Saksham","Aadesh"],
+  "Team C":["Dinesh","Himanshu","Mridul","Shreyam","Drishti","Nikhil Bhargava","Aahnik","Dheeraj"],
+  "Team D":["Anmol","Ramish","Gopal","Hitha","Sarthak","Siddhanth","Binnui","Swati"],
+  "Team E":["Tapesh","Abbas","Samanyou","Ajay","Pratik","Jaswanth","Bishwajeet","Tarsh"]
+};
+// Aliases: form name → team name (for tricky spellings)
+const ALIASES={
+  "sidhant":"Siddhanth","sidhant srivastava":"Siddhanth",
+  "sirjanpreet":"Sirjan","sirjanpreet singh banga":"Sirjan","sirjanpreet singh":"Sirjan",
+  "dinesh kumar r":"Dinesh","dinesh kumar":"Dinesh",
+  "amrendra kumar":"Amrendra",
+  "aadesh baranwal":"Aadesh","aahnik daw":"Aahnik",
+  "abbas tailor":"Abbas","adheil gupta":"Adheil",
+  "ajay jain":"Ajay","anikait makkar":"Anikait",
+  "anmol verma":"Anmol","ashish bedi":"Ashish Bedi",
+  "binnui tharun":"Binnui","bishwajeet sahoo":"Bishwajeet",
+  "dheeraj teella":"Dheeraj","drishti chawla":"Drishti",
+  "gopal bansal":"Gopal","harsh arya":"Harsh",
+  "hemanth dhananjayan":"Hemanth","hitha r":"Hitha",
+  "ishita srivastava":"Ishita","jaswanth kumar":"Jaswanth",
+  "jay godara":"Jay","mahika kariwala":"Mahika",
+  "mihir panikar":"Mihir","mridul dhiman":"Mridul",
+  "nikhil bhargava":"Nikhil Bhargava",
+  "pratik pushkar":"Pratik","ramish jamal":"Ramish",
+  "ronak kanungo":"Ronak","saksham mittal":"Saksham",
+  "samanyou garg":"Samanyou","sarthak jain":"Sarthak",
+  "satyam meena":"Satyam","shreyam maity":"Shreyam",
+  "sonakshi garg":"Sonakshi","suprit kumar":"Suprit",
+  "swati choudhury":"Swati","tapesh vashisth":"Tapesh",
+  "tarsh swarnkar":"Tarsh","vishal kumar":"Vishal",
+  "zubair mohammed":"Zubair","priyanka chauhan":"SKIP",
+  "pooja bollu":"SKIP","nikhil kumar":"SKIP",
+  "ishita srivastava":"SKIP","niyati":"SKIP",
+  "ashish yadav":"SKIP","jay godara":"SKIP","jay":"SKIP",
+};
+const TC={"Team A":"#f472b6","Team B":"#a78bfa","Team C":"#22d3ee","Team D":"#fbbf24","Team E":"#34d399"};
+const TE={"Team A":"🩷","Team B":"💜","Team C":"🩵","Team D":"💛","Team E":"💚"};
+
+function teamOf(name){
+  const n=name.trim().toLowerCase();
+  // 0. Check alias map first
+  const alias=ALIASES[n];
+  if(alias==="SKIP")return null;
+  const lookupName=alias?alias.toLowerCase():n;
+  // 1. Exact match
+  for(const[t,m]of Object.entries(TEAMS))if(m.some(x=>x.toLowerCase()===lookupName))return t;
+  // 2. First name match
+  const firstName=lookupName.split(/\s+/)[0];
+  for(const[t,m]of Object.entries(TEAMS))if(m.some(x=>x.toLowerCase().split(/\s+/)[0]===firstName))return t;
+  // 3. Contains match
+  for(const[t,m]of Object.entries(TEAMS))if(m.some(x=>x.toLowerCase().includes(lookupName)||lookupName.includes(x.toLowerCase())))return t;
+  // 4. Partial first name (3+ chars)
+  if(firstName.length>=3)for(const[t,m]of Object.entries(TEAMS))if(m.some(x=>x.toLowerCase().startsWith(firstName)||firstName.startsWith(x.toLowerCase().split(/\s+/)[0])))return t;
+  return null;
+}
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let S={
+  view:"home",
+  players:[],
+  order:[],
+  round:0,
+  isSpeed:false,
+  scores:{},
+  guessTeam:null,
+  timerTotal:30,
+  timerLeft:30,
+  timerOn:false,
+  timerRef:null,
+  sheetUrl:"",
+};
+Object.keys(TEAMS).forEach(t=>S.scores[t]=0);
+
+// ═══════════════════════════════════════════
+// GOOGLE SHEET PARSER
+// ═══════════════════════════════════════════
+async function loadSheet(){
+  const url=S.sheetUrl.trim();
+  let id="";
+  if(url.includes("/spreadsheets/d/"))id=url.split("/spreadsheets/d/")[1].split("/")[0];
+  else{const m=url.match(/[-\w]{25,}/);if(m)id=m[0];}
+  if(!id)return showErr("Invalid Google Sheet URL");
+
+  showMsg("Loading...");
+  try{
+    const r=await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`);
+    if(!r.ok)throw new Error("Can't access sheet");
+    const txt=await r.text();
+    const rows=parseCSV(txt);
+    if(rows.length<2)throw new Error("Sheet is empty");
+
+    const h=rows[0].map(x=>x.toLowerCase());
+    const ni=h.findIndex(x=>x.includes("name"));
+    const pi=h.findIndex(x=>x.includes("photo")||x.includes("image")||x.includes("upload")||x.includes("pic")||x.includes("childhood"));
+    const hi=h.findIndex(x=>x.includes("obsess")||x.includes("hint")||x.includes("clue")||x.includes("fact"));
+
+    if(ni===-1)throw new Error("No 'Name' column found in sheet");
+    if(pi===-1)throw new Error("No photo/image column found in sheet");
+
+    const allEntries=rows.slice(1).map(row=>{
+      let photo=(row[pi]||"").trim();
+      if(photo.includes("drive.google.com")){
+        let fid="";
+        if(photo.includes("id="))fid=photo.split("id=")[1]?.split("&")[0];
+        else if(photo.includes("/file/d/"))fid=photo.split("/file/d/")[1]?.split("/")[0];
+        if(fid)photo="https://lh3.googleusercontent.com/d/"+fid;
+      }
+      const name=(row[ni]||"").trim();
+      return{name,team:teamOf(name),photo,hint:hi!==-1?(row[hi]||"").trim():""};
+    }).filter(p=>p.name&&p.photo);
+
+    const unmatched=allEntries.filter(p=>!p.team).map(p=>p.name);
+    S.players=allEntries.filter(p=>p.team);
+
+    if(S.players.length===0){
+      const msg=unmatched.length>0
+        ?"No players matched. These names didn't match any team: "+unmatched.join(", ")
+        :"No valid entries found in sheet.";
+      throw new Error(msg);
+    }
+    if(unmatched.length>0)console.warn("Unmatched players:",unmatched);
+    S.view="lobby";
+    draw();
+  }catch(e){showErr(e.message);}
+}
+
+function parseCSV(txt){
+  return txt.split("\n").map(line=>{
+    const cells=[];let cur="",inQ=false;
+    for(const ch of line){
+      if(ch==='"')inQ=!inQ;
+      else if(ch===','&&!inQ){cells.push(cur.trim().replace(/^"|"$/g,''));cur="";}
+      else cur+=ch;
+    }
+    cells.push(cur.trim().replace(/^"|"$/g,''));
+    return cells;
+  }).filter(r=>r.length>1);
+}
+
+function showErr(msg){
+  const el=document.getElementById("err");
+  if(el){el.style.display="block";el.textContent="⚠️ "+msg;}
+  const btn=document.getElementById("loadBtn");
+  if(btn){btn.textContent="🚀 Load Responses";btn.disabled=false;}
+}
+function showMsg(msg){
+  const btn=document.getElementById("loadBtn");
+  if(btn){btn.textContent=msg;btn.disabled=true;}
+}
+
+// ═══════════════════════════════════════════
+// GAME LOGIC
+// ═══════════════════════════════════════════
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+function startGame(){
+  S.order=shuffle(S.players);
+  S.round=0;
+  Object.keys(S.scores).forEach(t=>S.scores[t]=0);
+  beginRound();
+}
+
+function beginRound(){
+  const cur=S.order[S.round];
+  // Speed round: every 4th round after round 2
+  S.isSpeed=(S.round>1&&S.round%4===0);
+  S.timerTotal=S.isSpeed?10:30;
+  S.timerLeft=S.timerTotal;
+
+  // Pick guessing team (rotate among teams that aren't the player's team)
+  const others=Object.keys(TEAMS).filter(t=>t!==cur.team);
+  S.guessTeam=others[S.round%others.length];
+
+  S.view="intro";
+  draw();
+  setTimeout(()=>{S.view="guess";draw();startTimer();},2500);
+}
+
+function startTimer(){
+  clearInterval(S.timerRef);
+  S.timerLeft=S.timerTotal;
+  S.timerOn=true;
+  updateTimer();
+  S.timerRef=setInterval(()=>{
+    S.timerLeft--;
+    updateTimer();
+    if(S.timerLeft<=0){clearInterval(S.timerRef);S.timerOn=false;}
+  },1000);
+}
+function stopTimer(){clearInterval(S.timerRef);S.timerOn=false;}
+function updateTimer(){
+  const fill=document.getElementById("tf");
+  const lbl=document.getElementById("tl");
+  if(!fill||!lbl)return;
+  const pct=(S.timerLeft/S.timerTotal)*100;
+  const c=S.timerLeft<=5?"var(--red)":S.timerLeft<=10?"var(--amber)":"var(--emerald)";
+  fill.style.width=pct+"%";fill.style.background=c;
+  lbl.style.color=c;lbl.textContent=S.timerLeft+"s";
+}
+
+function award(team,pts){S.scores[team]=(S.scores[team]||0)+pts;draw();}
+
+function doReveal(){stopTimer();S.view="reveal";fireConfetti();draw();}
+
+function nextRound(){
+  if(S.round+1>=S.order.length){S.view="winner";fireConfetti();draw();}
+  else{S.view="scores";draw();}
+}
+
+function continueNext(){S.round++;beginRound();}
+
+function fireConfetti(){
+  const box=document.getElementById("confetti-box");box.innerHTML="";
+  const cols=["#f472b6","#a78bfa","#fbbf24","#22d3ee","#34d399","#f87171","#fb923c"];
+  for(let i=0;i<55;i++){
+    const d=document.createElement("div");
+    Object.assign(d.style,{
+      position:"absolute",top:"-10px",left:Math.random()*100+"%",
+      width:(5+Math.random()*8)+"px",height:(4+Math.random()*6)+"px",
+      backgroundColor:cols[i%cols.length],borderRadius:Math.random()>.5?"50%":"2px",
+      animation:`confetti ${2+Math.random()*2}s ease-in ${Math.random()*1.5}s forwards`,opacity:"0"
+    });box.appendChild(d);
+  }
+  setTimeout(()=>box.innerHTML="",5000);
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function draw(){
+  const $=document.getElementById("app");
+  const cur=S.order[S.round];
+  const ranked=Object.entries(S.scores).sort((a,b)=>b[1]-a[1]);
+  const medals=["🥇","🥈","🥉"];
+
+  // Team mini scorebar
+  const miniScores=Object.entries(S.scores).map(([t,s])=>`<span style="padding:3px 10px;border-radius:99px;background:${TC[t]}10;font-size:11px;color:${TC[t]};font-family:var(--mono)">${TE[t]} ${s}</span>`).join("");
+
+  switch(S.view){
+
+  // ── HOME ──
+  case"home":
+  $.innerHTML=`<div style="animation:fadeUp .5s ease-out both;text-align:center">
+    <div style="font-size:56px;margin-bottom:10px;animation:float 4s ease-in-out infinite">👶📸</div>
+    <h1 style="font-size:46px;font-weight:800;background:linear-gradient(135deg,#f472b6,#a78bfa,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">Guess Who?</h1>
+    <p style="color:var(--muted);font-size:16px;margin-bottom:44px">Childhood Edition — Fun Friday</p>
+
+    <div class="card" style="text-align:left;max-width:520px;margin:0 auto 24px">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:6px;color:var(--amber)">📋 Connect Google Form Responses</h3>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:16px">Paste the Google Sheet URL linked to your form responses. Sheet must be shared as "Anyone with the link can view".</p>
+      <input class="inp" id="sheetInput" placeholder="https://docs.google.com/spreadsheets/d/..." value="${S.sheetUrl}" style="font-family:var(--mono);font-size:12px;margin-bottom:12px" oninput="S.sheetUrl=this.value">
+      <div id="err" style="display:none;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:10px;padding:10px 14px;color:var(--red);font-size:12px;margin-bottom:12px"></div>
+      <button class="btn bp" id="loadBtn" style="width:100%" onclick="loadSheet()">🚀 Load Responses</button>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px">
+      ${Object.entries(TEAMS).map(([t,m])=>`<div style="background:${TC[t]}12;border:1px solid ${TC[t]}25;border-radius:10px;padding:8px 14px;min-width:130px;text-align:left">
+        <div style="font-size:11px;font-weight:700;color:${TC[t]}">${TE[t]} ${t}</div>
+        <div style="font-size:11px;color:var(--muted)">${m.length} members</div>
+      </div>`).join("")}
+    </div>
+
+    <div class="card" style="text-align:left;background:rgba(251,191,36,.03);border-color:rgba(251,191,36,.1)">
+      <p style="color:var(--amber);font-size:11px;font-weight:700;margin-bottom:8px">🎯 GAME FEATURES</p>
+      <div style="color:var(--muted);font-size:12px;line-height:2">
+        <div>🏆 <b style="color:var(--text)">5 Teams</b> — compete for the most points</div>
+        <div>⚡ <b style="color:var(--text)">Speed Rounds</b> — 10 second timer every few rounds</div>
+        <div>🚫 <b style="color:var(--text)">Fair Play</b> — your team sits out when your photo shows</div>
+        <div>💡 <b style="color:var(--text)">Hints</b> — "What were you obsessed with?" shown as clues</div>
+        <div>📊 <b style="color:var(--text)">Live Scores</b> — team scoreboard after every round</div>
+      </div>
+    </div>
+  </div>`;
+  break;
+
+  // ── LOBBY ──
+  case"lobby":
+  $.innerHTML=`<div style="animation:fadeUp .5s ease-out both;text-align:center">
+    <h1 style="font-size:34px;font-weight:800;margin-bottom:6px">🎮 Ready to Play!</h1>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:28px">${S.players.length} players loaded across ${Object.keys(TEAMS).length} teams</p>
+
+    <div class="card" style="margin-bottom:24px;text-align:left">
+      ${Object.entries(TEAMS).map(([t,members])=>{
+        const loaded=S.players.filter(p=>p.team===t);
+        return`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;${t!=="Team A"?"border-top:1px solid var(--border);":""}">
+          <span class="badge" style="background:${TC[t]}15;color:${TC[t]};min-width:72px">${TE[t]} ${t}</span>
+          <span style="flex:1;font-size:12px;color:var(--muted)">${loaded.map(p=>p.name).join(", ")||"—"}</span>
+          <span style="font-size:12px;font-weight:700;color:${loaded.length>0?"var(--emerald)":"var(--red)"}">${loaded.length}/${members.length}</span>
+        </div>`;
+      }).join("")}
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn bs bsm" onclick="S.view='home';draw()">← Back</button>
+      ${S.players.length>=2?`<button class="btn bp" style="font-size:18px;padding:16px 48px" onclick="startGame()">🎬 Start Game! (${S.players.length} players)</button>`
+      :`<span style="color:var(--amber);font-size:13px;padding:16px">Need at least 2 players</span>`}
+    </div>
+  </div>`;
+  break;
+
+  // ── ROUND INTRO ──
+  case"intro":
+  $.innerHTML=`<div style="text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:68vh">
+    <div style="animation:bigPop .7s ease-out both">
+      <div class="badge" style="background:${S.isSpeed?"rgba(248,113,113,.12);color:var(--red);animation:pulse 1s infinite":"rgba(244,114,182,.1);color:var(--pink)"};padding:8px 20px;font-size:14px;margin-bottom:18px">
+        ${S.isSpeed?"⚡ SPEED ROUND — 10 SECONDS!":"📸 ROUND "+(S.round+1)}
+      </div>
+      <p style="font-family:var(--mono);color:var(--amber);font-size:13px;letter-spacing:5px;margin-bottom:14px">${S.round+1} OF ${S.order.length}</p>
+      <h1 style="font-size:46px;font-weight:800;margin-bottom:18px">Who is this<br>little one? 👀</h1>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <span style="padding:6px 14px;border-radius:99px;background:rgba(248,113,113,.08);color:var(--red);font-size:12px;font-weight:600">🚫 ${cur.team} sits out</span>
+        <span style="padding:6px 14px;border-radius:99px;background:${TC[S.guessTeam]}15;color:${TC[S.guessTeam]};font-size:12px;font-weight:600">${TE[S.guessTeam]} ${S.guessTeam} guesses</span>
+      </div>
+    </div>
+  </div>`;
+  break;
+
+  // ── GUESSING ──
+  case"guess":
+  $.innerHTML=`<div style="animation:fadeUp .4s ease-out both;text-align:center">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge" style="background:${S.isSpeed?"rgba(248,113,113,.12);color:var(--red);animation:pulse 1s infinite":"rgba(244,114,182,.1);color:var(--pink)"}">${S.isSpeed?"⚡ SPEED":"R"+(S.round+1)}</span>
+        <span style="font-family:var(--mono);color:var(--muted);font-size:11px">${S.round+1}/${S.order.length}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:10px;color:var(--red)">🚫 ${cur.team}</span>
+        <span class="badge" style="background:${TC[S.guessTeam]}15;color:${TC[S.guessTeam]}">${TE[S.guessTeam]} ${S.guessTeam}</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding:16px;margin-bottom:14px">
+      <div style="max-width:360px;margin:0 auto;border-radius:14px;overflow:hidden;border:3px dashed rgba(244,114,182,.3);background:#060a14">
+        <img src="${cur.photo}" alt="?" style="width:100%;max-height:320px;object-fit:contain;display:block" onerror="this.parentElement.innerHTML='<div style=\\'padding:40px;color:var(--muted);font-size:13px\\'>📷 Photo could not load.<br>Check Drive folder sharing.</div>'">
+      </div>
+      ${cur.hint?`<div style="margin-top:12px;padding:8px 14px;background:rgba(251,191,36,.05);border-radius:8px;border:1px solid rgba(251,191,36,.1)">
+        <span style="color:var(--amber);font-size:13px">💡 Obsessed with: <b>${cur.hint}</b></span>
+      </div>`:""}
+    </div>
+
+    <!-- Timer -->
+    <div style="max-width:380px;margin:0 auto 14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:11px;color:var(--muted);letter-spacing:3px;font-family:var(--mono)">TIME</span>
+        <span id="tl" style="font-size:18px;font-weight:800;font-family:var(--mono)">30s</span>
+      </div>
+      <div style="height:5px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden">
+        <div id="tf" style="height:100%;width:100%;background:var(--emerald);border-radius:99px;transition:width 1s linear,background .4s"></div>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:13px;margin:12px 0">${TE[S.guessTeam]} <b style="color:var(--text)">${S.guessTeam}</b> — guess in GMeet chat!</p>
+
+    <button class="btn bp" onclick="doReveal()">🎉 Reveal Answer</button>
+
+    <div style="display:flex;gap:6px;justify-content:center;margin-top:18px;flex-wrap:wrap">${miniScores}</div>
+  </div>`;
+  break;
+
+  // ── REVEAL ──
+  case"reveal":
+  const otherTeams=Object.keys(TEAMS).filter(t=>t!==cur.team);
+  $.innerHTML=`<div style="animation:pop .5s ease-out both;text-align:center">
+    <p style="color:var(--pink);font-size:18px;font-weight:700;letter-spacing:2px;margin-bottom:12px">IT'S...</p>
+
+    <div class="card" style="margin-bottom:16px">
+      <div style="max-width:220px;margin:0 auto 12px;border-radius:14px;overflow:hidden;border:2px solid ${TC[cur.team]}50">
+        <img src="${cur.photo}" alt="${cur.name}" style="width:100%;object-fit:contain;display:block">
+      </div>
+      <h1 style="font-size:36px;font-weight:800;margin-bottom:4px;background:linear-gradient(135deg,${TC[cur.team]},var(--amber));-webkit-background-clip:text;-webkit-text-fill-color:transparent">${cur.name}</h1>
+      <span class="badge" style="background:${TC[cur.team]}15;color:${TC[cur.team]};margin-top:4px">${TE[cur.team]} ${cur.team}</span>
+      ${cur.hint?`<p style="color:var(--muted);font-size:12px;margin-top:6px;font-style:italic">Obsessed with: "${cur.hint}"</p>`:""}
+    </div>
+
+    <!-- Award Points -->
+    <div class="card" style="margin-bottom:16px">
+      <h3 style="color:var(--amber);font-size:13px;font-weight:700;margin-bottom:8px">🏆 Who guessed correctly?</h3>
+      <p style="color:var(--muted);font-size:11px;margin-bottom:12px">Primary team (${S.guessTeam}) gets <b style="color:var(--emerald)">3 pts</b> — others get <b>1 pt</b></p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
+        ${otherTeams.map(t=>`<button class="btn bs bsm" style="border-color:${TC[t]}40;color:${TC[t]}" onclick="award('${t}',${t===S.guessTeam?3:1})">${TE[t]} ${t} (${t===S.guessTeam?"+3":"+1"})</button>`).join("")}
+      </div>
+      <div style="margin-top:12px;display:flex;gap:5px;flex-wrap:wrap;justify-content:center">${miniScores}</div>
+    </div>
+
+    <button class="btn bp" onclick="nextRound()">${S.round+1>=S.order.length?"🏆 Final Results":"📊 Scoreboard →"}</button>
+  </div>`;
+  break;
+
+  // ── SCOREBOARD ──
+  case"scores":
+  $.innerHTML=`<div style="animation:fadeUp .4s ease-out both;text-align:center">
+    <div style="font-size:34px;margin-bottom:4px">📊</div>
+    <h2 style="font-size:26px;font-weight:800;margin-bottom:4px">Scoreboard</h2>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:22px">After Round ${S.round+1} of ${S.order.length}</p>
+    <div class="card" style="max-width:420px;margin:0 auto 22px">
+      ${ranked.map(([t,s],i)=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;animation:slideIn .3s ease-out ${i*.08}s both;${i<3?"background:rgba(244,114,182,.04)":""}">
+        <span style="font-size:18px;width:28px">${i<3?medals[i]:`<span style="color:var(--muted);font-family:var(--mono)">${i+1}</span>`}</span>
+        <span class="badge" style="background:${TC[t]}15;color:${TC[t]}">${TE[t]} ${t}</span>
+        <span style="flex:1"></span>
+        <span style="color:var(--amber);font-weight:800;font-family:var(--mono);font-size:18px">${s}</span>
+      </div>`).join("")}
+    </div>
+    <button class="btn bp" onclick="continueNext()">🎬 Next Round →</button>
+  </div>`;
+  break;
+
+  // ── WINNER ──
+  case"winner":
+  const w=ranked[0];
+  $.innerHTML=`<div style="animation:pop .6s ease-out both;text-align:center">
+    <div style="font-size:60px;margin-bottom:8px;animation:float 3s ease-in-out infinite">🏆</div>
+    <p style="font-family:var(--mono);color:var(--amber);font-size:14px;letter-spacing:6px;font-weight:700;margin-bottom:10px">THE WINNER IS</p>
+    ${w?`<h1 style="font-size:48px;font-weight:800;color:${TC[w[0]]};margin-bottom:4px">${TE[w[0]]} ${w[0]}</h1>
+    <p style="color:var(--amber);font-size:22px;font-family:var(--mono);font-weight:700;margin-bottom:28px">${w[1]} points 🎉</p>`
+    :`<h2 style="color:var(--muted);margin-bottom:28px">No scores!</h2>`}
+
+    <div class="card" style="max-width:420px;margin:0 auto 24px">
+      <h3 style="color:var(--muted);font-size:11px;letter-spacing:3px;margin-bottom:12px">FINAL STANDINGS</h3>
+      ${ranked.map(([t,s],i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;animation:slideIn .4s ease-out ${i*.1}s both">
+        <span style="font-size:16px;width:26px">${i<3?medals[i]:`<span style="color:var(--muted);font-family:var(--mono)">${i+1}</span>`}</span>
+        <span class="badge" style="background:${TC[t]}15;color:${TC[t]}">${TE[t]} ${t}</span>
+        <span style="flex:1"></span>
+        <span style="color:var(--amber);font-weight:800;font-family:var(--mono);font-size:16px">${s}</span>
+      </div>`).join("")}
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="btn bs" onclick="S.view='home';draw()">🏠 Home</button>
+      <button class="btn bp" onclick="startGame()">🔄 Play Again</button>
+    </div>
+    <p style="color:var(--muted);font-size:13px;margin-top:28px">Thanks for playing! See you next Fun Friday 🚀</p>
+  </div>`;
+  break;
+  }
+}
+
+// Init
+draw();
+</script>
+</body>
+</html>
